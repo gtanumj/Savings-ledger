@@ -1,4 +1,4 @@
-const CACHE = "savings-ledger-v1";
+const CACHE = "savings-ledger-v3";
 const ASSETS = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", event => {
