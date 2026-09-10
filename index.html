@@ -19,6 +19,9 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 
+<!-- Excel export library -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
 
@@ -392,6 +395,7 @@ table.year-table td:first-child{
 
 .data-bar{
   display:flex;
+  flex-wrap:wrap;
   gap:6px;
   justify-content:center;
   margin:0 0 12px;
@@ -399,7 +403,7 @@ table.year-table td:first-child{
 
 .data-btn{
   font-size:11px;
-  padding:6px 9px;
+  padding:7px 10px;
   border:1px solid var(--paper-line);
   border-radius:5px;
   background:var(--card);
@@ -445,7 +449,6 @@ const TEMPLATE={
   otherIncome:4500,
   dividends:0,
   savingsInterest:6300,
-
   incomeAdjustments:[],
 
   salaryExpenses:[
@@ -460,47 +463,68 @@ const TEMPLATE={
       amount:3000
     },
     {
-      category:"Miscellaneous",
-      note:"Support to sister",
+      category:"Rent/Housing",
+      note:"IMI",
       amount:20000
-    },
-    {
-      category:"Utilities",
-      note:"Electricity",
-      amount:2000
     },
     {
       category:"SIP/Investments",
       note:"ULIP",
       amount:12500
+    },
+    {
+      category:"SIP/Investments",
+      note:"Monthly SIP",
+      amount:22000
     }
   ],
 
-  cardExpenses:[],
+  cardExpenses:[
+    {
+      category:"Utilities",
+      note:"Electricity",
+      amount:2000
+    }
+  ],
 
   investments:[
     {
-      note:"Monthly SIP (auto-debit from savings account)",
+      note:"Monthly SIP",
       amount:22000
+    },
+    {
+      note:"ULIP",
+      amount:12500
     }
-  ]
+  ],
+
+  cardBillInitialized:false
 };
 
+
 /*
-  IMPORTANT:
-  Keeping the same storage key preserves the ledger's
-  existing localStorage database.
+  Do not change this.
+  This is your existing ledger database.
 */
 const KEY="anushka-savings-ledger-v1";
 
+/*
+  One-time conversion of previously saved months.
+*/
+const MIGRATION_KEY="anushka-ledger-migration-v3";
+
+
 let db=loadDB();
 
+runMigration();
+
 let now=new Date();
+
 let viewMonth=now.getMonth();
 let viewYear=now.getFullYear();
 
 let currentEntry=empty();
-let usedTemplate=false;
+
 
 function empty(){
 
@@ -512,39 +536,47 @@ function empty(){
     incomeAdjustments:[],
     salaryExpenses:[],
     cardExpenses:[],
-    investments:[]
+    investments:[],
+    cardBillInitialized:false
   };
 }
+
+
+function clone(obj){
+
+  return JSON.parse(
+    JSON.stringify(obj)
+  );
+}
+
 
 function uid(){
 
   return "e"+
-    Math.random().toString(36).slice(2,9)+
-    Date.now().toString(36).slice(-4);
+    Math.random()
+      .toString(36)
+      .slice(2,9)+
+    Date.now()
+      .toString(36)
+      .slice(-4);
 }
 
-function withIds(e){
-
-  [
-    "incomeAdjustments",
-    "salaryExpenses",
-    "cardExpenses",
-    "investments"
-  ].forEach(g=>{
-
-    e[g]=(e[g]||[]).map(x=>({
-      id:x.id||uid(),
-      ...x
-    }));
-  });
-
-  return e;
-}
 
 function key(y,m){
 
-  return y+"-"+String(m+1).padStart(2,"0");
+  return y+"-"+
+    String(m+1)
+      .padStart(2,"0");
 }
+
+
+function normalise(v){
+
+  return String(v||"")
+    .trim()
+    .toLowerCase();
+}
+
 
 function loadDB(){
 
@@ -559,6 +591,7 @@ function loadDB(){
     return{};
   }
 }
+
 
 function persist(){
 
@@ -577,76 +610,26 @@ function persist(){
   }
 }
 
-function eligible(y,m){
 
-  return y>TEMPLATE_START.year ||
-    (
-      y===TEMPLATE_START.year &&
-      m>=TEMPLATE_START.month
-    );
+function withIds(e){
+
+  [
+    "incomeAdjustments",
+    "salaryExpenses",
+    "cardExpenses",
+    "investments"
+  ].forEach(g=>{
+
+    e[g]=(e[g]||[])
+      .map(x=>({
+        id:x.id||uid(),
+        ...x
+      }));
+  });
+
+  return e;
 }
 
-function loadEntry(y,m){
-
-  const k=key(y,m);
-
-  if(db[k]){
-
-    usedTemplate=false;
-
-    return withIds(
-      JSON.parse(JSON.stringify(db[k]))
-    );
-  }
-
-  if(eligible(y,m)){
-
-    usedTemplate=true;
-
-    return withIds(
-      JSON.parse(JSON.stringify(TEMPLATE))
-    );
-  }
-
-  usedTemplate=false;
-
-  return empty();
-}
-
-function saveEntry(y,m,e){
-
-  db[key(y,m)]=
-    JSON.parse(JSON.stringify(e));
-
-  return persist();
-}
-
-function fmt(n){
-
-  n=Math.round(Number(n)||0);
-
-  let neg=n<0;
-
-  n=Math.abs(n);
-
-  let s=n
-    .toString()
-    .replace(
-      /\B(?=(\d{3})+(?!\d))/g,
-      ","
-    );
-
-  return(neg?"-":"")+"₹"+s;
-}
-
-function cardTotal(e){
-
-  return (e.cardExpenses||[])
-    .reduce(
-      (s,x)=>s+(Number(x.amount)||0),
-      0
-    );
-}
 
 function previousMonth(y,m){
 
@@ -661,25 +644,469 @@ function previousMonth(y,m){
     };
 }
 
-function previousCardBill(y,m){
 
-  const p=previousMonth(y,m);
+function cardTotal(e){
 
-  const saved=
-    db[key(p.year,p.month)];
+  return(
+    e.cardExpenses||[]
+  ).reduce(
+    (sum,x)=>
+      sum+(Number(x.amount)||0),
+    0
+  );
+}
 
-  return saved
-    ?cardTotal(saved)
+
+function previousCardSpend(y,m){
+
+  const p=
+    previousMonth(y,m);
+
+  const previousEntry=
+    db[
+      key(
+        p.year,
+        p.month
+      )
+    ];
+
+  return previousEntry
+    ?cardTotal(previousEntry)
     :0;
 }
 
+
+function previousCardNote(y,m){
+
+  const p=
+    previousMonth(y,m);
+
+  return MONTHS[p.month]+
+    " card bill";
+}
+
+
+function addInitialCardBill(e,y,m){
+
+  if(e.cardBillInitialized){
+    return e;
+  }
+
+  const alreadyHasBill=
+    (e.salaryExpenses||[])
+      .some(x=>
+        normalise(x.category)==="credit card bills"
+      );
+
+  if(!alreadyHasBill){
+
+    const amount=
+      previousCardSpend(y,m);
+
+    if(amount>0){
+
+      e.salaryExpenses.unshift({
+        id:uid(),
+        category:"Credit Card Bills",
+        note:previousCardNote(y,m),
+        amount:amount,
+        autoCardBill:true
+      });
+    }
+  }
+
+  e.cardBillInitialized=true;
+
+  return e;
+}
+
+
+function runMigration(){
+
+  if(
+    localStorage.getItem(
+      MIGRATION_KEY
+    )==="done"
+  ){
+    return;
+  }
+
+
+  let changed=false;
+
+
+  /*
+    Process months chronologically so that
+    credit-card spending in one month can
+    flow into the next month correctly.
+  */
+  const savedKeys=
+    Object.keys(db)
+      .sort();
+
+
+  savedKeys.forEach(k=>{
+
+    let e=db[k];
+
+    if(
+      !e ||
+      typeof e!=="object"
+    ){
+      return;
+    }
+
+
+    e.incomeAdjustments=
+      e.incomeAdjustments||[];
+
+    e.salaryExpenses=
+      e.salaryExpenses||[];
+
+    e.cardExpenses=
+      e.cardExpenses||[];
+
+    e.investments=
+      e.investments||[];
+
+
+    /*
+      Support to sister -> Rent/Housing / IMI
+    */
+    e.salaryExpenses.forEach(x=>{
+
+      if(
+        normalise(x.note)==="support to sister"
+      ){
+
+        x.category=
+          "Rent/Housing";
+
+        x.note=
+          "IMI";
+
+        changed=true;
+      }
+    });
+
+
+    /*
+      Electricity leaves salary expenses
+      and moves to credit card spending.
+    */
+    const electricityRows=
+      e.salaryExpenses.filter(x=>
+        normalise(x.note)==="electricity"
+      );
+
+
+    electricityRows.forEach(x=>{
+
+      const exists=
+        e.cardExpenses.some(c=>
+          normalise(c.note)==="electricity" &&
+          Number(c.amount||0)===
+          Number(x.amount||0)
+        );
+
+
+      if(!exists){
+
+        e.cardExpenses.push({
+          id:uid(),
+          category:"Utilities",
+          note:"Electricity",
+          amount:Number(x.amount)||0
+        });
+      }
+
+      changed=true;
+    });
+
+
+    if(electricityRows.length){
+
+      e.salaryExpenses=
+        e.salaryExpenses.filter(x=>
+          normalise(x.note)!=="electricity"
+        );
+    }
+
+
+    /*
+      Monthly SIP:
+      keep it as an expense AND investment tracking.
+    */
+    const monthlyInvestment=
+      e.investments.find(x=>
+        normalise(x.note)
+          .includes("monthly sip") &&
+        Number(x.amount||0)===22000
+      );
+
+
+    const monthlySalaryExpense=
+      e.salaryExpenses.find(x=>
+        normalise(x.note)
+          .includes("monthly sip") &&
+        Number(x.amount||0)===22000
+      );
+
+
+    if(
+      monthlyInvestment &&
+      !monthlySalaryExpense
+    ){
+
+      e.salaryExpenses.push({
+        id:uid(),
+        category:"SIP/Investments",
+        note:"Monthly SIP",
+        amount:22000
+      });
+
+      changed=true;
+    }
+
+
+    if(
+      monthlySalaryExpense &&
+      !monthlyInvestment
+    ){
+
+      e.investments.push({
+        id:uid(),
+        note:"Monthly SIP",
+        amount:22000
+      });
+
+      changed=true;
+    }
+
+
+    /*
+      ULIP:
+      keep salary expense intact
+      and also track as an investment.
+    */
+    const ulipExpense=
+      e.salaryExpenses.find(x=>
+        normalise(x.note)==="ulip"
+      );
+
+
+    const ulipInvestment=
+      e.investments.find(x=>
+        normalise(x.note)==="ulip"
+      );
+
+
+    if(
+      ulipExpense &&
+      !ulipInvestment
+    ){
+
+      e.investments.push({
+        id:uid(),
+        note:"ULIP",
+        amount:Number(
+          ulipExpense.amount
+        )||0
+      });
+
+      changed=true;
+    }
+
+
+    db[k]=e;
+  });
+
+
+  /*
+    Now create editable credit-card bill rows
+    for already-saved months.
+  */
+  savedKeys.forEach(k=>{
+
+    const parts=k.split("-");
+
+    const y=
+      Number(parts[0]);
+
+    const m=
+      Number(parts[1])-1;
+
+    let e=db[k];
+
+
+    if(!e){
+      return;
+    }
+
+
+    if(
+      e.cardBillInitialized!==true
+    ){
+
+      const alreadyHasBill=
+        (e.salaryExpenses||[])
+          .some(x=>
+            normalise(x.category)===
+            "credit card bills"
+          );
+
+
+      if(!alreadyHasBill){
+
+        const amount=
+          previousCardSpend(y,m);
+
+
+        if(amount>0){
+
+          e.salaryExpenses.unshift({
+            id:uid(),
+            category:"Credit Card Bills",
+            note:previousCardNote(y,m),
+            amount:amount,
+            autoCardBill:true
+          });
+
+          changed=true;
+        }
+      }
+
+
+      e.cardBillInitialized=true;
+
+      changed=true;
+    }
+
+
+    db[k]=e;
+  });
+
+
+  if(changed){
+    persist();
+  }
+
+
+  localStorage.setItem(
+    MIGRATION_KEY,
+    "done"
+  );
+}
+
+
+function eligible(y,m){
+
+  return y>TEMPLATE_START.year ||
+    (
+      y===TEMPLATE_START.year &&
+      m>=TEMPLATE_START.month
+    );
+}
+
+
+function loadEntry(y,m){
+
+  const k=
+    key(y,m);
+
+
+  if(db[k]){
+
+    let e=
+      withIds(
+        clone(db[k])
+      );
+
+    return addInitialCardBill(
+      e,
+      y,
+      m
+    );
+  }
+
+
+  if(eligible(y,m)){
+
+    let e=
+      withIds(
+        clone(TEMPLATE)
+      );
+
+    return addInitialCardBill(
+      e,
+      y,
+      m
+    );
+  }
+
+
+  let e=
+    empty();
+
+  return addInitialCardBill(
+    e,
+    y,
+    m
+  );
+}
+
+
+function saveEntry(y,m,e){
+
+  db[
+    key(y,m)
+  ]=
+    clone(e);
+
+  return persist();
+}
+
+
+function fmt(n){
+
+  n=Math.round(
+    Number(n)||0
+  );
+
+  const negative=
+    n<0;
+
+  n=Math.abs(n);
+
+
+  const formatted=
+    n.toString()
+      .replace(
+        /\B(?=(\d{3})+(?!\d))/g,
+        ","
+      );
+
+
+  return(
+    negative
+      ?"-"
+      :""
+  )+
+  "₹"+
+  formatted;
+}
+
+
 function adjustmentTotal(e){
 
-  return (e.incomeAdjustments||[])
-    .reduce((sum,x)=>{
+  return(
+    e.incomeAdjustments||[]
+  ).reduce(
+    (sum,x)=>{
 
       const amount=
         Number(x.amount)||0;
+
 
       return sum+
         (
@@ -688,75 +1115,96 @@ function adjustmentTotal(e){
             :amount
         );
 
-    },0);
+    },
+    0
+  );
 }
 
-function totals(
-  e,
-  y=viewYear,
-  m=viewMonth
-){
 
-  let adjustment=
+function totals(e){
+
+  const adjustment=
     adjustmentTotal(e);
 
-  let income=
-    (e.salary||0)+
-    (e.otherIncome||0)+
-    (e.dividends||0)+
+
+  const income=
+    (Number(e.salary)||0)+
+    (Number(e.otherIncome)||0)+
+    (Number(e.dividends)||0)+
     adjustment;
 
-  let salaryExp=
+
+  /*
+    All actual cash outflow from salary account
+    is counted here.
+
+    Investments section is tracking-only.
+    Credit card spending is tracking-only until
+    its bill becomes a salary-account expense
+    next month.
+  */
+  const salaryExp=
     (e.salaryExpenses||[])
       .reduce(
-        (s,x)=>
-          s+(Number(x.amount)||0),
+        (sum,x)=>
+          sum+
+          (Number(x.amount)||0),
         0
       );
 
-  let cardExp=
+
+  const cardExp=
     cardTotal(e);
 
-  let cardBill=
-    previousCardBill(y,m);
 
-  let expenses=
-    salaryExp+cardBill;
-
-  let investments=
+  const investments=
     (e.investments||[])
       .reduce(
-        (s,x)=>
-          s+(Number(x.amount)||0),
+        (sum,x)=>
+          sum+
+          (Number(x.amount)||0),
         0
       );
 
-  let si=
-    e.savingsInterest||0;
+
+  const savingsInterest=
+    Number(
+      e.savingsInterest
+    )||0;
+
+
+  const savings=
+    income-
+    salaryExp;
+
 
   return{
     income,
     adjustment,
     salaryExp,
     cardExp,
-    cardBill,
-    expenses,
     investments,
-    savingsInterest:si,
-    savings:income-expenses,
+    savingsInterest,
+    savings,
     rate:
       income
-        ?(income-expenses)/income
+        ?savings/income
         :0
   };
 }
 
+
 function sync(){
 
-  const r=
-    document.getElementById("root");
+  const root=
+    document.getElementById(
+      "root"
+    );
 
-  if(!r)return;
+  if(!root){
+    return;
+  }
+
 
   [
     ["salaryInput","salary"],
@@ -766,33 +1214,41 @@ function sync(){
       "savingsInterestInput",
       "savingsInterest"
     ]
-  ].forEach(([id,f])=>{
+  ].forEach(([id,field])=>{
 
-    let x=
+    const element=
       document.getElementById(id);
 
-    if(x){
-      currentEntry[f]=
-        Number(x.value)||0;
+
+    if(element){
+
+      currentEntry[field]=
+        Number(element.value)||0;
     }
   });
 
-  r.querySelectorAll(
+
+  root.querySelectorAll(
     "[data-field]"
   ).forEach(el=>{
 
-    let item=
+    const item=
       (
         currentEntry[
           el.dataset.group
         ]||[]
       ).find(
-        x=>x.id===el.dataset.id
+        x=>
+          x.id===
+          el.dataset.id
       );
+
 
     if(item){
 
-      item[el.dataset.field]=
+      item[
+        el.dataset.field
+      ]=
         el.dataset.field==="amount"
           ?Number(el.value)||0
           :el.value;
@@ -800,7 +1256,8 @@ function sync(){
   });
 }
 
-function rows(list,g){
+
+function rows(list,group){
 
   if(!list.length){
 
@@ -811,13 +1268,14 @@ function rows(list,g){
     `;
   }
 
+
   return list.map(x=>`
 
     <div class="exp-row">
 
       <select
         class="exp-cat"
-        data-group="${g}"
+        data-group="${group}"
         data-field="category"
         data-id="${x.id}"
       >
@@ -825,9 +1283,11 @@ function rows(list,g){
         ${CATS.map(c=>`
 
           <option
-            ${c===x.category
-              ?"selected"
-              :""}
+            ${
+              c===x.category
+                ?"selected"
+                :""
+            }
           >
             ${c}
           </option>
@@ -836,9 +1296,10 @@ function rows(list,g){
 
       </select>
 
+
       <input
         class="exp-note"
-        data-group="${g}"
+        data-group="${group}"
         data-field="note"
         data-id="${x.id}"
         placeholder="Note"
@@ -848,9 +1309,10 @@ function rows(list,g){
         }"
       >
 
+
       <input
         class="exp-amt ledger-num"
-        data-group="${g}"
+        data-group="${group}"
         data-field="amount"
         data-id="${x.id}"
         type="number"
@@ -859,9 +1321,10 @@ function rows(list,g){
         value="${x.amount||""}"
       >
 
+
       <button
         class="exp-del"
-        data-group="${g}"
+        data-group="${group}"
         data-id="${x.id}"
       >
         ×
@@ -872,11 +1335,13 @@ function rows(list,g){
   `).join("");
 }
 
+
 function incomeAdjustmentRows(list){
 
   if(!list.length){
     return "";
   }
+
 
   return list.map(x=>`
 
@@ -901,6 +1366,7 @@ function incomeAdjustmentRows(list){
           + Add
         </option>
 
+
         <option
           value="subtract"
           ${
@@ -914,6 +1380,7 @@ function incomeAdjustmentRows(list){
 
       </select>
 
+
       <input
         class="exp-note"
         data-group="incomeAdjustments"
@@ -926,6 +1393,7 @@ function incomeAdjustmentRows(list){
         }"
       >
 
+
       <input
         class="exp-amt ledger-num"
         data-group="incomeAdjustments"
@@ -937,6 +1405,7 @@ function incomeAdjustmentRows(list){
         placeholder="0"
         value="${x.amount||""}"
       >
+
 
       <button
         class="exp-del"
@@ -951,63 +1420,76 @@ function incomeAdjustmentRows(list){
   `).join("");
 }
 
+
+function investmentRows(list){
+
+  if(!list.length){
+
+    return`
+      <div class="empty-note">
+        —
+      </div>
+    `;
+  }
+
+
+  return list.map(x=>`
+
+    <div class="exp-row">
+
+      <input
+        class="exp-note"
+        style="flex:2"
+        data-group="investments"
+        data-field="note"
+        data-id="${x.id}"
+        placeholder="Investment"
+        value="${
+          String(x.note||"")
+            .replace(/"/g,"&quot;")
+        }"
+      >
+
+
+      <input
+        class="exp-amt ledger-num"
+        data-group="investments"
+        data-field="amount"
+        data-id="${x.id}"
+        type="number"
+        inputmode="decimal"
+        placeholder="0"
+        value="${x.amount||""}"
+      >
+
+
+      <button
+        class="exp-del"
+        data-group="investments"
+        data-id="${x.id}"
+      >
+        ×
+      </button>
+
+    </div>
+
+  `).join("");
+}
+
+
 function render(){
 
-  const r=
-    document.getElementById("root");
+  const root=
+    document.getElementById(
+      "root"
+    );
+
 
   const t=
     totals(currentEntry);
 
-  let inv=
-    (currentEntry.investments||[])
-      .map(x=>`
 
-        <div class="exp-row">
-
-          <input
-            class="exp-note"
-            style="flex:2"
-            data-group="investments"
-            data-field="note"
-            data-id="${x.id}"
-            placeholder="Investment"
-            value="${
-              String(x.note||"")
-                .replace(/"/g,"&quot;")
-            }"
-          >
-
-          <input
-            class="exp-amt ledger-num"
-            data-group="investments"
-            data-field="amount"
-            data-id="${x.id}"
-            type="number"
-            inputmode="decimal"
-            placeholder="0"
-            value="${x.amount||""}"
-          >
-
-          <button
-            class="exp-del"
-            data-group="investments"
-            data-id="${x.id}"
-          >
-            ×
-          </button>
-
-        </div>
-
-      `).join("")
-      ||
-      `
-        <div class="empty-note">
-          —
-        </div>
-      `;
-
-  r.innerHTML=`
+  root.innerHTML=`
 
     <div class="nav-row">
 
@@ -1018,6 +1500,7 @@ function render(){
       >
         ‹
       </button>
+
 
       <div style="text-align:center">
 
@@ -1031,6 +1514,7 @@ function render(){
         </div>
 
       </div>
+
 
       <button
         class="nav-btn"
@@ -1049,28 +1533,30 @@ function render(){
         Net savings
       </div>
 
+
       <div
         class="
           hero-figure
-          ${t.savings>=0
-            ?"pos"
-            :"neg"}
+          ${
+            t.savings>=0
+              ?"pos"
+              :"neg"
+          }
         "
       >
         ${fmt(t.savings)}
       </div>
 
-      <div class="hero-rate">
 
+      <div class="hero-rate">
         ${
           t.income
             ?(
               t.rate*100
             ).toFixed(1)+
-              "% savings rate"
+            "% savings rate"
             :"—"
         }
-
       </div>
 
     </div>
@@ -1084,36 +1570,29 @@ function render(){
           Income
         </div>
 
-        <div
-          class="
-            section-total
-            green
-          "
-        >
+        <div class="section-total green">
           ${fmt(t.income)}
         </div>
 
       </div>
+
 
       ${
         [
           "Salary",
           "Rental / other income",
           "Dividends"
-        ]
-        .map((lab,i)=>`
+        ].map((label,i)=>`
 
           <div class="row-line">
 
             <div class="row-label">
-              ${lab}
+              ${label}
             </div>
 
+
             <input
-              class="
-                row-input
-                ledger-num
-              "
+              class="row-input ledger-num"
               id="${
                 [
                   "salaryInput",
@@ -1138,16 +1617,14 @@ function render(){
         `).join("")
       }
 
-      <div>
 
-        ${
-          incomeAdjustmentRows(
-            currentEntry
-              .incomeAdjustments||[]
-          )
-        }
+      ${
+        incomeAdjustmentRows(
+          currentEntry
+            .incomeAdjustments||[]
+        )
+      }
 
-      </div>
 
       <button
         class="add-btn"
@@ -1167,28 +1644,21 @@ function render(){
           Salary account expenses
         </div>
 
-        <div
-          class="
-            section-total
-            red
-          "
-        >
+        <div class="section-total red">
           ${fmt(t.salaryExp)}
         </div>
 
       </div>
 
-      <div>
 
-        ${
-          rows(
-            currentEntry
-              .salaryExpenses,
-            "salaryExpenses"
-          )
-        }
+      ${
+        rows(
+          currentEntry
+            .salaryExpenses||[],
+          "salaryExpenses"
+        )
+      }
 
-      </div>
 
       <button
         class="add-btn"
@@ -1208,28 +1678,21 @@ function render(){
           Credit card spending
         </div>
 
-        <div
-          class="
-            section-total
-            gold
-          "
-        >
+        <div class="section-total gold">
           ${fmt(t.cardExp)}
         </div>
 
       </div>
 
-      <div>
 
-        ${
-          rows(
-            currentEntry
-              .cardExpenses,
-            "cardExpenses"
-          )
-        }
+      ${
+        rows(
+          currentEntry
+            .cardExpenses||[],
+          "cardExpenses"
+        )
+      }
 
-      </div>
 
       <button
         class="add-btn"
@@ -1241,46 +1704,7 @@ function render(){
     </div>
 
 
-    <div
-      class="
-        section
-        muted
-      "
-    >
-
-      <div
-        class="section-head"
-        style="
-          margin-bottom:0;
-          border-bottom:none;
-          padding-bottom:0
-        "
-      >
-
-        <div class="section-title">
-          Previous month's card bill
-        </div>
-
-        <div
-          class="
-            section-total
-            red
-          "
-        >
-          ${fmt(t.cardBill)}
-        </div>
-
-      </div>
-
-    </div>
-
-
-    <div
-      class="
-        section
-        muted
-      "
-    >
+    <div class="section muted">
 
       <div class="section-head">
 
@@ -1288,16 +1712,12 @@ function render(){
           Savings account interest
         </div>
 
-        <div
-          class="
-            section-total
-            gold
-          "
-        >
+        <div class="section-total gold">
           ${fmt(t.savingsInterest)}
         </div>
 
       </div>
+
 
       <div class="row-line">
 
@@ -1305,11 +1725,9 @@ function render(){
           Interest
         </div>
 
+
         <input
-          class="
-            row-input
-            ledger-num
-          "
+          class="row-input ledger-num"
           id="savingsInterestInput"
           type="number"
           inputmode="decimal"
@@ -1325,12 +1743,7 @@ function render(){
     </div>
 
 
-    <div
-      class="
-        section
-        muted
-      "
-    >
+    <div class="section muted">
 
       <div class="section-head">
 
@@ -1338,20 +1751,20 @@ function render(){
           Investments
         </div>
 
-        <div
-          class="
-            section-total
-            gold
-          "
-        >
+        <div class="section-total gold">
           ${fmt(t.investments)}
         </div>
 
       </div>
 
-      <div>
-        ${inv}
-      </div>
+
+      ${
+        investmentRows(
+          currentEntry
+            .investments||[]
+        )
+      }
+
 
       <button
         class="add-btn"
@@ -1374,6 +1787,7 @@ function render(){
 
     </div>
 
+
     <div
       class="save-status"
       id="status"
@@ -1384,10 +1798,19 @@ function render(){
 
       <button
         class="data-btn"
+        id="excel"
+      >
+        Export Excel
+      </button>
+
+
+      <button
+        class="data-btn"
         id="export"
       >
         Export backup
       </button>
+
 
       <button
         class="data-btn"
@@ -1395,6 +1818,7 @@ function render(){
       >
         Import backup
       </button>
+
 
       <input
         id="file"
@@ -1407,29 +1831,33 @@ function render(){
 
 
     <div class="divider">
-
       <span>
         Year in review
       </span>
-
     </div>
+
 
     <div id="year"></div>
   `;
+
 
   bind();
   renderYear();
 }
 
+
 function bind(){
 
   document
     .getElementById("prev")
-    .onclick=()=>change(-1);
+    .onclick=
+      ()=>change(-1);
+
 
   document
     .getElementById("next")
-    .onclick=()=>change(1);
+    .onclick=
+      ()=>change(1);
 
 
   [
@@ -1437,8 +1865,7 @@ function bind(){
     "otherIncomeInput",
     "dividendsInput",
     "savingsInterestInput"
-  ]
-  .forEach(id=>{
+  ].forEach(id=>{
 
     document
       .getElementById(id)
@@ -1453,9 +1880,9 @@ function bind(){
             ?"dividends"
             :"savingsInterest"
         ]=
-          Number(e.target.value)||0;
-
-        usedTemplate=false;
+          Number(
+            e.target.value
+          )||0;
 
         refresh();
       };
@@ -1473,6 +1900,7 @@ function bind(){
           currentEntry
             .incomeAdjustments||[];
 
+
       currentEntry
         .incomeAdjustments
         .push({
@@ -1482,7 +1910,6 @@ function bind(){
           amount:""
         });
 
-      usedTemplate=false;
 
       render();
     };
@@ -1494,14 +1921,16 @@ function bind(){
 
       sync();
 
+
       currentEntry
         .salaryExpenses
         .push({
           id:uid(),
-          category:CATS[0],
+          category:"Miscellaneous",
           note:"",
           amount:""
         });
+
 
       render();
     };
@@ -1513,15 +1942,16 @@ function bind(){
 
       sync();
 
+
       currentEntry
         .cardExpenses
         .push({
           id:uid(),
-          category:
-            "Credit Card Bills",
+          category:"Miscellaneous",
           note:"",
           amount:""
         });
+
 
       render();
     };
@@ -1533,6 +1963,7 @@ function bind(){
 
       sync();
 
+
       currentEntry
         .investments
         .push({
@@ -1540,6 +1971,7 @@ function bind(){
           note:"",
           amount:""
         });
+
 
       render();
     };
@@ -1555,17 +1987,18 @@ function bind(){
 
         sync();
 
+
         currentEntry[
           btn.dataset.group
         ]=
           currentEntry[
             btn.dataset.group
-          ]
-          .filter(
+          ].filter(
             x=>
               x.id!==
               btn.dataset.id
           );
+
 
         render();
       };
@@ -1580,80 +2013,52 @@ function bind(){
 
       el.oninput=
       el.onchange=
-        ()=>{
+      ()=>{
 
-          let item=
-            (
-              currentEntry[
-                el.dataset.group
-              ]||[]
-            )
-            .find(
-              x=>
-                x.id===
-                el.dataset.id
-            );
+        const item=
+          (
+            currentEntry[
+              el.dataset.group
+            ]||[]
+          ).find(
+            x=>
+              x.id===
+              el.dataset.id
+          );
 
-          if(item){
 
-            item[
-              el.dataset.field
-            ]=
-              el.dataset.field===
-              "amount"
-                ?Number(
-                  el.value
-                )||0
-                :el.value;
-          }
+        if(item){
 
-          usedTemplate=false;
+          item[
+            el.dataset.field
+          ]=
+            el.dataset.field==="amount"
+              ?Number(el.value)||0
+              :el.value;
+        }
 
-          refresh();
-        };
+
+        refresh();
+      };
     });
 
 
   document
     .getElementById("save")
-    .onclick=save;
+    .onclick=
+      save;
+
+
+  document
+    .getElementById("excel")
+    .onclick=
+      exportExcel;
 
 
   document
     .getElementById("export")
-    .onclick=()=>{
-
-      let blob=
-        new Blob(
-          [
-            JSON.stringify(
-              db,
-              null,
-              2
-            )
-          ],
-          {
-            type:
-              "application/json"
-          }
-        );
-
-      let a=
-        document
-          .createElement("a");
-
-      a.href=
-        URL.createObjectURL(blob);
-
-      a.download=
-        "savings-ledger-backup.json";
-
-      a.click();
-
-      URL.revokeObjectURL(
-        a.href
-      );
-    };
+    .onclick=
+      exportBackup;
 
 
   document
@@ -1669,66 +2074,33 @@ function bind(){
   document
     .getElementById("file")
     .onchange=
-      async e=>{
-
-        let f=
-          e.target.files[0];
-
-        if(!f)return;
-
-        try{
-
-          let obj=
-            JSON.parse(
-              await f.text()
-            );
-
-          if(
-            typeof obj!=="object"
-          ){
-            throw 0;
-          }
-
-          db=obj;
-
-          persist();
-
-          currentEntry=
-            loadEntry(
-              viewYear,
-              viewMonth
-            );
-
-          render();
-
-        }catch(err){
-
-          alert(
-            "Invalid backup file."
-          );
-        }
-      };
+      importBackup;
 }
+
 
 function refresh(){
 
-  let t=
+  const t=
     totals(currentEntry);
 
-  let h=
+
+  const hero=
     document.querySelector(
       ".hero-figure"
     );
 
-  let rate=
+
+  const rate=
     document.querySelector(
       ".hero-rate"
     );
 
-  h.textContent=
+
+  hero.textContent=
     fmt(t.savings);
 
-  h.className=
+
+  hero.className=
     "hero-figure "+
     (
       t.savings>=0
@@ -1736,34 +2108,38 @@ function refresh(){
         :"neg"
     );
 
+
   rate.textContent=
     t.income
       ?(
         t.rate*100
       ).toFixed(1)+
-        "% savings rate"
+      "% savings rate"
       :"—";
 
-  let totalsEls=
+
+  const sectionTotals=
     document.querySelectorAll(
       ".section-total"
     );
 
-  let values=[
+
+  const values=[
     t.income,
     t.salaryExp,
     t.cardExp,
-    t.cardBill,
     t.savingsInterest,
     t.investments
   ];
 
-  totalsEls.forEach(
+
+  sectionTotals.forEach(
     (el,i)=>{
 
       if(
         values[i]!==undefined
       ){
+
         el.textContent=
           fmt(values[i]);
       }
@@ -1771,48 +2147,55 @@ function refresh(){
   );
 }
 
+
 function save(){
 
   sync();
 
-  let ok=
+
+  const ok=
     saveEntry(
       viewYear,
       viewMonth,
       currentEntry
     );
 
-  let s=
+
+  const status=
     document.getElementById(
       "status"
     );
 
-  usedTemplate=false;
 
-  s.textContent=
+  status.textContent=
     ok
       ?"Saved ✓"
       :"Could not save";
 
-  s.style.color=
+
+  status.style.color=
     ok
       ?"var(--green)"
       :"var(--red)";
 
+
   renderYear();
+
 
   setTimeout(()=>{
 
-    if(s){
-      s.textContent="";
+    if(status){
+      status.textContent="";
     }
 
   },2500);
 }
 
-function change(d){
+
+function change(direction){
 
   sync();
+
 
   saveEntry(
     viewYear,
@@ -1820,7 +2203,9 @@ function change(d){
     currentEntry
   );
 
-  viewMonth+=d;
+
+  viewMonth+=direction;
+
 
   if(viewMonth<0){
 
@@ -1828,11 +2213,13 @@ function change(d){
     viewYear--;
   }
 
+
   if(viewMonth>11){
 
     viewMonth=0;
     viewYear++;
   }
+
 
   currentEntry=
     loadEntry(
@@ -1840,17 +2227,21 @@ function change(d){
       viewMonth
     );
 
+
   render();
 }
 
+
 function renderYear(){
 
-  let wrap=
+  const wrap=
     document.getElementById(
       "year"
     );
 
-  let yearRows=[];
+
+  const yearRows=[];
+
 
   for(
     let m=0;
@@ -1858,89 +2249,110 @@ function renderYear(){
     m++
   ){
 
-    let e=
-      m===viewMonth
-        ?currentEntry
-        :(
-          db[
-            key(
-              viewYear,
-              m
-            )
-          ]
-            ?withIds(
-              JSON.parse(
-                JSON.stringify(
-                  db[
-                    key(
-                      viewYear,
-                      m
-                    )
-                  ]
-                )
+    let e;
+
+
+    if(m===viewMonth){
+
+      e=currentEntry;
+
+    }else if(
+      db[
+        key(
+          viewYear,
+          m
+        )
+      ]
+    ){
+
+      e=
+        withIds(
+          clone(
+            db[
+              key(
+                viewYear,
+                m
               )
-            )
-            :empty()
+            ]
+          )
         );
 
-    let t=
-      totals(
-        e,
-        viewYear,
-        m
-      );
+    }else{
+
+      e=empty();
+    }
+
+
+    const t=
+      totals(e);
+
 
     yearRows.push({
       month:
         MONTHS[m]
           .slice(0,3),
-      income:t.income,
-      expenses:t.expenses,
-      savings:t.savings,
+
+      income:
+        t.income,
+
+      expenses:
+        t.salaryExp,
+
+      savings:
+        t.savings,
+
       investments:
         t.investments,
+
       savingsInterest:
         t.savingsInterest
     });
   }
 
-  let yi=
+
+  const yi=
     yearRows.reduce(
       (s,r)=>
         s+r.income,
       0
     );
 
-  let ye=
+
+  const ye=
     yearRows.reduce(
       (s,r)=>
         s+r.expenses,
       0
     );
 
-  let ys=
+
+  const ys=
     yi-ye;
 
-  let yinv=
+
+  const yinv=
     yearRows.reduce(
       (s,r)=>
         s+r.investments,
       0
     );
 
-  let yint=
+
+  const yint=
     yearRows.reduce(
       (s,r)=>
         s+r.savingsInterest,
       0
     );
 
-  let yr=
+
+  const yr=
     yi
       ?ys/yi*100
       :0;
 
-  let max=
+
+  const max=
     Math.max(
       1,
       ...yearRows.map(
@@ -1951,38 +2363,45 @@ function renderYear(){
       )
     );
 
-  let bw=26;
-  let gap=10;
-  let ch=90;
-  let base=45;
 
-  let w=
+  const bw=26;
+  const gap=10;
+  const ch=90;
+  const base=45;
+
+
+  const w=
     yearRows.length*
     (bw+gap);
 
-  let bars=
+
+  const bars=
     yearRows.map(
       (r,i)=>{
 
-        let x=
+        const x=
           i*(bw+gap);
 
-        let h=
+
+        const h=
           Math.abs(
             r.savings
           )/
           max*
           (ch/2-6);
 
-        let y=
+
+        const y=
           r.savings>=0
             ?base-h
             :base;
 
-        let c=
+
+        const c=
           r.savings>=0
             ?"var(--green)"
             :"var(--red)";
+
 
         return`
 
@@ -1996,6 +2415,7 @@ function renderYear(){
             fill="${c}"
             rx="2"
           />
+
 
           <text
             x="${
@@ -2013,6 +2433,7 @@ function renderYear(){
       }
     ).join("");
 
+
   wrap.innerHTML=`
 
     <div class="year-kpis">
@@ -2029,6 +2450,7 @@ function renderYear(){
 
       </div>
 
+
       <div class="kpi">
 
         <div class="kpi-label">
@@ -2040,6 +2462,7 @@ function renderYear(){
         </div>
 
       </div>
+
 
       <div class="kpi">
 
@@ -2061,6 +2484,7 @@ function renderYear(){
         </div>
 
       </div>
+
 
       <div class="kpi">
 
@@ -2096,6 +2520,7 @@ function renderYear(){
 
       </div>
 
+
       <div class="kpi">
 
         <div class="kpi-label">
@@ -2119,11 +2544,7 @@ function renderYear(){
     <div class="chart-wrap">
 
       <svg
-        viewBox="
-          0 0
-          ${w}
-          ${ch+20}
-        "
+        viewBox="0 0 ${w} ${ch+20}"
         width="100%"
         height="140"
       >
@@ -2156,6 +2577,7 @@ function renderYear(){
 
       </thead>
 
+
       <tbody>
 
         ${yearRows.map(r=>`
@@ -2181,6 +2603,7 @@ function renderYear(){
           </tr>
 
         `).join("")}
+
 
         <tr>
 
@@ -2216,11 +2639,538 @@ function renderYear(){
   `;
 }
 
+
+/* =========================================================
+   EXCEL EXPORT
+   ========================================================= */
+
+function exportExcel(){
+
+  /*
+    Make sure whatever is currently visible
+    is included before exporting.
+  */
+  sync();
+
+  saveEntry(
+    viewYear,
+    viewMonth,
+    currentEntry
+  );
+
+
+  if(
+    typeof XLSX==="undefined"
+  ){
+
+    alert(
+      "Excel export could not load. Please open the app with an internet connection and try again."
+    );
+
+    return;
+  }
+
+
+  const monthly=[];
+  const salaryRows=[];
+  const cardRows=[];
+  const investmentRows=[];
+  const adjustmentRows=[];
+
+
+  const savedKeys=
+    Object.keys(db)
+      .sort();
+
+
+  savedKeys.forEach(k=>{
+
+    const parts=
+      k.split("-");
+
+
+    const year=
+      Number(parts[0]);
+
+
+    const monthIndex=
+      Number(parts[1])-1;
+
+
+    const month=
+      MONTHS[monthIndex];
+
+
+    const e=
+      db[k]||empty();
+
+
+    const t=
+      totals(e);
+
+
+    monthly.push({
+
+      Year:
+        year,
+
+      Month:
+        month,
+
+      "Salary":
+        Number(e.salary)||0,
+
+      "Rental / Other Income":
+        Number(e.otherIncome)||0,
+
+      "Dividends":
+        Number(e.dividends)||0,
+
+      "Income Adjustments":
+        adjustmentTotal(e),
+
+      "Total Income":
+        t.income,
+
+      "Salary Account Expenses":
+        t.salaryExp,
+
+      "Credit Card Spending":
+        t.cardExp,
+
+      "Savings Account Interest":
+        t.savingsInterest,
+
+      "Investments":
+        t.investments,
+
+      "Net Savings":
+        t.savings,
+
+      "Savings Rate %":
+        Number(
+          (
+            t.rate*100
+          ).toFixed(2)
+        )
+    });
+
+
+    (
+      e.salaryExpenses||[]
+    ).forEach(x=>{
+
+      salaryRows.push({
+
+        Year:
+          year,
+
+        Month:
+          month,
+
+        Category:
+          x.category||"",
+
+        Note:
+          x.note||"",
+
+        Amount:
+          Number(x.amount)||0
+      });
+    });
+
+
+    (
+      e.cardExpenses||[]
+    ).forEach(x=>{
+
+      cardRows.push({
+
+        Year:
+          year,
+
+        Month:
+          month,
+
+        Category:
+          x.category||"",
+
+        Note:
+          x.note||"",
+
+        Amount:
+          Number(x.amount)||0
+      });
+    });
+
+
+    (
+      e.investments||[]
+    ).forEach(x=>{
+
+      investmentRows.push({
+
+        Year:
+          year,
+
+        Month:
+          month,
+
+        Investment:
+          x.note||"",
+
+        Amount:
+          Number(x.amount)||0
+      });
+    });
+
+
+    (
+      e.incomeAdjustments||[]
+    ).forEach(x=>{
+
+      const amount=
+        Number(x.amount)||0;
+
+
+      adjustmentRows.push({
+
+        Year:
+          year,
+
+        Month:
+          month,
+
+        Type:
+          (
+            x.sign||"add"
+          )==="subtract"
+            ?"Subtract"
+            :"Add",
+
+        Note:
+          x.note||"",
+
+        Amount:
+          (
+            x.sign||"add"
+          )==="subtract"
+            ?-amount
+            :amount
+      });
+    });
+  });
+
+
+  const wb=
+    XLSX.utils.book_new();
+
+
+  const monthlySheet=
+    XLSX.utils.json_to_sheet(
+      monthly
+    );
+
+
+  const salarySheet=
+    XLSX.utils.json_to_sheet(
+      salaryRows
+    );
+
+
+  const cardSheet=
+    XLSX.utils.json_to_sheet(
+      cardRows
+    );
+
+
+  const investmentSheet=
+    XLSX.utils.json_to_sheet(
+      investmentRows
+    );
+
+
+  const adjustmentSheet=
+    XLSX.utils.json_to_sheet(
+      adjustmentRows
+    );
+
+
+  monthlySheet["!cols"]=[
+    {wch:8},
+    {wch:12},
+    {wch:14},
+    {wch:22},
+    {wch:12},
+    {wch:20},
+    {wch:16},
+    {wch:24},
+    {wch:20},
+    {wch:22},
+    {wch:14},
+    {wch:16},
+    {wch:16}
+  ];
+
+
+  salarySheet["!cols"]=[
+    {wch:8},
+    {wch:12},
+    {wch:22},
+    {wch:28},
+    {wch:14}
+  ];
+
+
+  cardSheet["!cols"]=[
+    {wch:8},
+    {wch:12},
+    {wch:22},
+    {wch:28},
+    {wch:14}
+  ];
+
+
+  investmentSheet["!cols"]=[
+    {wch:8},
+    {wch:12},
+    {wch:32},
+    {wch:14}
+  ];
+
+
+  adjustmentSheet["!cols"]=[
+    {wch:8},
+    {wch:12},
+    {wch:12},
+    {wch:28},
+    {wch:14}
+  ];
+
+
+  XLSX.utils.book_append_sheet(
+    wb,
+    monthlySheet,
+    "Monthly Summary"
+  );
+
+
+  XLSX.utils.book_append_sheet(
+    wb,
+    salarySheet,
+    "Salary Expenses"
+  );
+
+
+  XLSX.utils.book_append_sheet(
+    wb,
+    cardSheet,
+    "Credit Card"
+  );
+
+
+  XLSX.utils.book_append_sheet(
+    wb,
+    investmentSheet,
+    "Investments"
+  );
+
+
+  XLSX.utils.book_append_sheet(
+    wb,
+    adjustmentSheet,
+    "Income Adjustments"
+  );
+
+
+  const today=
+    new Date();
+
+
+  const stamp=
+    today.getFullYear()+
+    "-"+
+    String(
+      today.getMonth()+1
+    ).padStart(2,"0")+
+    "-"+
+    String(
+      today.getDate()
+    ).padStart(2,"0");
+
+
+  const filename=
+    "Savings_Ledger_All_Years_"+
+    stamp+
+    ".xlsx";
+
+
+  const output=
+    XLSX.write(
+      wb,
+      {
+        bookType:"xlsx",
+        type:"array"
+      }
+    );
+
+
+  const blob=
+    new Blob(
+      [output],
+      {
+        type:
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      }
+    );
+
+
+  downloadBlob(
+    blob,
+    filename
+  );
+}
+
+
+function downloadBlob(
+  blob,
+  filename
+){
+
+  const url=
+    URL.createObjectURL(
+      blob
+    );
+
+
+  const a=
+    document.createElement(
+      "a"
+    );
+
+
+  a.href=
+    url;
+
+  a.download=
+    filename;
+
+
+  document.body.appendChild(a);
+
+  a.click();
+
+  a.remove();
+
+
+  setTimeout(()=>{
+
+    URL.revokeObjectURL(
+      url
+    );
+
+  },1000);
+}
+
+
+/* =========================================================
+   JSON BACKUP
+   ========================================================= */
+
+function exportBackup(){
+
+  sync();
+
+  saveEntry(
+    viewYear,
+    viewMonth,
+    currentEntry
+  );
+
+
+  const blob=
+    new Blob(
+      [
+        JSON.stringify(
+          db,
+          null,
+          2
+        )
+      ],
+      {
+        type:"application/json"
+      }
+    );
+
+
+  downloadBlob(
+    blob,
+    "savings-ledger-backup.json"
+  );
+}
+
+
+async function importBackup(e){
+
+  const f=
+    e.target.files[0];
+
+
+  if(!f){
+    return;
+  }
+
+
+  try{
+
+    const obj=
+      JSON.parse(
+        await f.text()
+      );
+
+
+    if(
+      !obj ||
+      typeof obj!=="object" ||
+      Array.isArray(obj)
+    ){
+      throw new Error();
+    }
+
+
+    db=obj;
+
+    persist();
+
+
+    currentEntry=
+      loadEntry(
+        viewYear,
+        viewMonth
+      );
+
+
+    render();
+
+
+  }catch(err){
+
+    alert(
+      "Invalid backup file."
+    );
+  }
+
+
+  e.target.value="";
+}
+
+
 currentEntry=
   loadEntry(
     viewYear,
     viewMonth
   );
+
 
 render();
 
@@ -2240,6 +3190,9 @@ if(
       navigator
         .serviceWorker
         .register("./sw.js")
+        .then(registration=>{
+          registration.update();
+        })
         .catch(console.error);
 
     }
