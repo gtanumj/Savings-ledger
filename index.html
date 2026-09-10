@@ -2,13 +2,18 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+
+<meta
+  name="viewport"
+  content="width=device-width,initial-scale=1,viewport-fit=cover"
+>
+
 <title>Savings Ledger</title>
 
 <meta name="theme-color" content="#14161C">
 <meta name="color-scheme" content="dark light">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Savings Ledger">
 
 <link rel="manifest" href="manifest.json">
@@ -45,7 +50,9 @@
   }
 }
 
-*{box-sizing:border-box}
+*{
+  box-sizing:border-box;
+}
 
 html,body{
   margin:0;
@@ -54,14 +61,22 @@ html,body{
   min-height:100%;
 }
 
-body{min-height:100vh}
+body{
+  min-height:100vh;
+}
 
 .ledger-root{
   font-family:'IBM Plex Sans',-apple-system,sans-serif;
   color:var(--ink);
   max-width:480px;
   margin:0 auto;
-  padding:4px 0 32px;
+
+  padding:
+    calc(env(safe-area-inset-top) + 12px)
+    env(safe-area-inset-right)
+    calc(env(safe-area-inset-bottom) + 32px)
+    env(safe-area-inset-left);
+
   background:var(--paper);
 }
 
@@ -126,8 +141,13 @@ body{min-height:100vh}
   line-height:1.1;
 }
 
-.hero-figure.pos{color:var(--green)}
-.hero-figure.neg{color:var(--red)}
+.hero-figure.pos{
+  color:var(--green);
+}
+
+.hero-figure.neg{
+  color:var(--red);
+}
 
 .hero-rate{
   font-size:12px;
@@ -164,9 +184,17 @@ body{min-height:100vh}
   font-weight:700;
 }
 
-.green{color:var(--green)}
-.red{color:var(--red)}
-.gold{color:var(--gold)}
+.green{
+  color:var(--green);
+}
+
+.red{
+  color:var(--red);
+}
+
+.gold{
+  color:var(--gold);
+}
 
 .row-line{
   display:flex;
@@ -176,7 +204,9 @@ body{min-height:100vh}
   border-bottom:1px dashed var(--paper-line);
 }
 
-.row-line:last-child{border-bottom:none}
+.row-line:last-child{
+  border-bottom:none;
+}
 
 .row-label{
   flex:1;
@@ -207,7 +237,9 @@ body{min-height:100vh}
   border-bottom:1px dashed var(--paper-line);
 }
 
-.exp-row:last-child{border-bottom:none}
+.exp-row:last-child{
+  border-bottom:none;
+}
 
 .exp-cat{
   flex:1.3;
@@ -403,37 +435,75 @@ const MONTHS=[
   "July","August","September","October","November","December"
 ];
 
-const TEMPLATE_START={year:2026,month:8};
+const TEMPLATE_START={
+  year:2026,
+  month:8
+};
 
 const TEMPLATE={
   salary:180000,
   otherIncome:4500,
   dividends:0,
   savingsInterest:6300,
+
   incomeAdjustments:[],
+
   salaryExpenses:[
-    {category:"Rent/Housing",note:"Rent",amount:37000},
-    {category:"Miscellaneous",note:"House help wages",amount:3000},
-    {category:"Miscellaneous",note:"Support to sister",amount:20000},
-    {category:"Utilities",note:"Electricity",amount:2000},
-    {category:"SIP/Investments",note:"ULIP",amount:12500}
+    {
+      category:"Rent/Housing",
+      note:"Rent",
+      amount:37000
+    },
+    {
+      category:"Miscellaneous",
+      note:"House help wages",
+      amount:3000
+    },
+    {
+      category:"Miscellaneous",
+      note:"Support to sister",
+      amount:20000
+    },
+    {
+      category:"Utilities",
+      note:"Electricity",
+      amount:2000
+    },
+    {
+      category:"SIP/Investments",
+      note:"ULIP",
+      amount:12500
+    }
   ],
+
   cardExpenses:[],
+
   investments:[
-    {note:"Monthly SIP (auto-debit from savings account)",amount:22000}
+    {
+      note:"Monthly SIP (auto-debit from savings account)",
+      amount:22000
+    }
   ]
 };
 
+/*
+  IMPORTANT:
+  Keeping the same storage key preserves the ledger's
+  existing localStorage database.
+*/
 const KEY="anushka-savings-ledger-v1";
 
 let db=loadDB();
+
 let now=new Date();
 let viewMonth=now.getMonth();
 let viewYear=now.getFullYear();
+
 let currentEntry=empty();
 let usedTemplate=false;
 
 function empty(){
+
   return{
     salary:0,
     otherIncome:0,
@@ -447,100 +517,188 @@ function empty(){
 }
 
 function uid(){
-  return "e"+Math.random().toString(36).slice(2,9)+Date.now().toString(36).slice(-4);
+
+  return "e"+
+    Math.random().toString(36).slice(2,9)+
+    Date.now().toString(36).slice(-4);
 }
 
 function withIds(e){
-  ["incomeAdjustments","salaryExpenses","cardExpenses","investments"].forEach(g=>{
-    e[g]=(e[g]||[]).map(x=>({id:x.id||uid(),...x}));
+
+  [
+    "incomeAdjustments",
+    "salaryExpenses",
+    "cardExpenses",
+    "investments"
+  ].forEach(g=>{
+
+    e[g]=(e[g]||[]).map(x=>({
+      id:x.id||uid(),
+      ...x
+    }));
   });
+
   return e;
 }
 
 function key(y,m){
+
   return y+"-"+String(m+1).padStart(2,"0");
 }
 
 function loadDB(){
+
   try{
-    return JSON.parse(localStorage.getItem(KEY)||"{}");
+
+    return JSON.parse(
+      localStorage.getItem(KEY)||"{}"
+    );
+
   }catch(e){
+
     return{};
   }
 }
 
 function persist(){
+
   try{
-    localStorage.setItem(KEY,JSON.stringify(db));
+
+    localStorage.setItem(
+      KEY,
+      JSON.stringify(db)
+    );
+
     return true;
+
   }catch(e){
+
     return false;
   }
 }
 
 function eligible(y,m){
+
   return y>TEMPLATE_START.year ||
-    (y===TEMPLATE_START.year && m>=TEMPLATE_START.month);
+    (
+      y===TEMPLATE_START.year &&
+      m>=TEMPLATE_START.month
+    );
 }
 
 function loadEntry(y,m){
+
   const k=key(y,m);
 
   if(db[k]){
+
     usedTemplate=false;
-    return withIds(JSON.parse(JSON.stringify(db[k])));
+
+    return withIds(
+      JSON.parse(JSON.stringify(db[k]))
+    );
   }
 
   if(eligible(y,m)){
+
     usedTemplate=true;
-    return withIds(JSON.parse(JSON.stringify(TEMPLATE)));
+
+    return withIds(
+      JSON.parse(JSON.stringify(TEMPLATE))
+    );
   }
 
   usedTemplate=false;
+
   return empty();
 }
 
 function saveEntry(y,m,e){
-  db[key(y,m)]=JSON.parse(JSON.stringify(e));
+
+  db[key(y,m)]=
+    JSON.parse(JSON.stringify(e));
+
   return persist();
 }
 
 function fmt(n){
+
   n=Math.round(Number(n)||0);
+
   let neg=n<0;
+
   n=Math.abs(n);
-  let s=n.toString().replace(/\B(?=(\d{3})+(?!\d))/g,",");
+
+  let s=n
+    .toString()
+    .replace(
+      /\B(?=(\d{3})+(?!\d))/g,
+      ","
+    );
+
   return(neg?"-":"")+"₹"+s;
 }
 
 function cardTotal(e){
-  return (e.cardExpenses||[]).reduce(
-    (s,x)=>s+(Number(x.amount)||0),0
-  );
+
+  return (e.cardExpenses||[])
+    .reduce(
+      (s,x)=>s+(Number(x.amount)||0),
+      0
+    );
 }
 
 function previousMonth(y,m){
+
   return m===0
-    ? {year:y-1,month:11}
-    : {year:y,month:m-1};
+    ?{
+      year:y-1,
+      month:11
+    }
+    :{
+      year:y,
+      month:m-1
+    };
 }
 
 function previousCardBill(y,m){
+
   const p=previousMonth(y,m);
-  const saved=db[key(p.year,p.month)];
-  return saved ? cardTotal(saved) : 0;
+
+  const saved=
+    db[key(p.year,p.month)];
+
+  return saved
+    ?cardTotal(saved)
+    :0;
 }
 
 function adjustmentTotal(e){
-  return (e.incomeAdjustments||[]).reduce((sum,x)=>{
-    const amount=Number(x.amount)||0;
-    return sum+((x.sign||"add")==="subtract" ? -amount : amount);
-  },0);
+
+  return (e.incomeAdjustments||[])
+    .reduce((sum,x)=>{
+
+      const amount=
+        Number(x.amount)||0;
+
+      return sum+
+        (
+          (x.sign||"add")==="subtract"
+            ?-amount
+            :amount
+        );
+
+    },0);
 }
 
-function totals(e,y=viewYear,m=viewMonth){
+function totals(
+  e,
+  y=viewYear,
+  m=viewMonth
+){
 
-  let adjustment=adjustmentTotal(e);
+  let adjustment=
+    adjustmentTotal(e);
 
   let income=
     (e.salary||0)+
@@ -549,20 +707,32 @@ function totals(e,y=viewYear,m=viewMonth){
     adjustment;
 
   let salaryExp=
-    (e.salaryExpenses||[]).reduce(
-      (s,x)=>s+(Number(x.amount)||0),0
-    );
+    (e.salaryExpenses||[])
+      .reduce(
+        (s,x)=>
+          s+(Number(x.amount)||0),
+        0
+      );
 
-  let cardExp=cardTotal(e);
-  let cardBill=previousCardBill(y,m);
-  let expenses=salaryExp+cardBill;
+  let cardExp=
+    cardTotal(e);
+
+  let cardBill=
+    previousCardBill(y,m);
+
+  let expenses=
+    salaryExp+cardBill;
 
   let investments=
-    (e.investments||[]).reduce(
-      (s,x)=>s+(Number(x.amount)||0),0
-    );
+    (e.investments||[])
+      .reduce(
+        (s,x)=>
+          s+(Number(x.amount)||0),
+        0
+      );
 
-  let si=e.savingsInterest||0;
+  let si=
+    e.savingsInterest||0;
 
   return{
     income,
@@ -574,35 +744,58 @@ function totals(e,y=viewYear,m=viewMonth){
     investments,
     savingsInterest:si,
     savings:income-expenses,
-    rate:income?(income-expenses)/income:0
+    rate:
+      income
+        ?(income-expenses)/income
+        :0
   };
 }
 
 function sync(){
 
-  const r=document.getElementById("root");
+  const r=
+    document.getElementById("root");
+
   if(!r)return;
 
   [
     ["salaryInput","salary"],
     ["otherIncomeInput","otherIncome"],
     ["dividendsInput","dividends"],
-    ["savingsInterestInput","savingsInterest"]
+    [
+      "savingsInterestInput",
+      "savingsInterest"
+    ]
   ].forEach(([id,f])=>{
-    let x=document.getElementById(id);
-    if(x)currentEntry[f]=Number(x.value)||0;
+
+    let x=
+      document.getElementById(id);
+
+    if(x){
+      currentEntry[f]=
+        Number(x.value)||0;
+    }
   });
 
-  r.querySelectorAll("[data-field]").forEach(el=>{
+  r.querySelectorAll(
+    "[data-field]"
+  ).forEach(el=>{
 
-    let item=(currentEntry[el.dataset.group]||[])
-      .find(x=>x.id===el.dataset.id);
+    let item=
+      (
+        currentEntry[
+          el.dataset.group
+        ]||[]
+      ).find(
+        x=>x.id===el.dataset.id
+      );
 
     if(item){
+
       item[el.dataset.field]=
         el.dataset.field==="amount"
-          ? Number(el.value)||0
-          : el.value;
+          ?Number(el.value)||0
+          :el.value;
     }
   });
 }
@@ -610,10 +803,16 @@ function sync(){
 function rows(list,g){
 
   if(!list.length){
-    return '<div class="empty-note">—</div>';
+
+    return`
+      <div class="empty-note">
+        —
+      </div>
+    `;
   }
 
   return list.map(x=>`
+
     <div class="exp-row">
 
       <select
@@ -622,9 +821,19 @@ function rows(list,g){
         data-field="category"
         data-id="${x.id}"
       >
+
         ${CATS.map(c=>`
-          <option ${c===x.category?"selected":""}>${c}</option>
+
+          <option
+            ${c===x.category
+              ?"selected"
+              :""}
+          >
+            ${c}
+          </option>
+
         `).join("")}
+
       </select>
 
       <input
@@ -633,7 +842,10 @@ function rows(list,g){
         data-field="note"
         data-id="${x.id}"
         placeholder="Note"
-        value="${String(x.note||"").replace(/"/g,"&quot;")}"
+        value="${
+          String(x.note||"")
+            .replace(/"/g,"&quot;")
+        }"
       >
 
       <input
@@ -651,9 +863,12 @@ function rows(list,g){
         class="exp-del"
         data-group="${g}"
         data-id="${x.id}"
-      >×</button>
+      >
+        ×
+      </button>
 
     </div>
+
   `).join("");
 }
 
@@ -664,6 +879,7 @@ function incomeAdjustmentRows(list){
   }
 
   return list.map(x=>`
+
     <div class="exp-row">
 
       <select
@@ -673,13 +889,29 @@ function incomeAdjustmentRows(list){
         data-field="sign"
         data-id="${x.id}"
       >
-        <option value="add" ${(x.sign||"add")==="add"?"selected":""}>
+
+        <option
+          value="add"
+          ${
+            (x.sign||"add")==="add"
+              ?"selected"
+              :""
+          }
+        >
           + Add
         </option>
 
-        <option value="subtract" ${x.sign==="subtract"?"selected":""}>
+        <option
+          value="subtract"
+          ${
+            x.sign==="subtract"
+              ?"selected"
+              :""
+          }
+        >
           − Subtract
         </option>
+
       </select>
 
       <input
@@ -688,7 +920,10 @@ function incomeAdjustmentRows(list){
         data-field="note"
         data-id="${x.id}"
         placeholder="Note"
-        value="${String(x.note||"").replace(/"/g,"&quot;")}"
+        value="${
+          String(x.note||"")
+            .replace(/"/g,"&quot;")
+        }"
       >
 
       <input
@@ -707,75 +942,135 @@ function incomeAdjustmentRows(list){
         class="exp-del"
         data-group="incomeAdjustments"
         data-id="${x.id}"
-      >×</button>
+      >
+        ×
+      </button>
 
     </div>
+
   `).join("");
 }
 
 function render(){
 
-  const r=document.getElementById("root");
-  const t=totals(currentEntry);
+  const r=
+    document.getElementById("root");
 
-  let inv=(currentEntry.investments||[]).map(x=>`
-    <div class="exp-row">
+  const t=
+    totals(currentEntry);
 
-      <input
-        class="exp-note"
-        style="flex:2"
-        data-group="investments"
-        data-field="note"
-        data-id="${x.id}"
-        placeholder="Investment"
-        value="${String(x.note||"").replace(/"/g,"&quot;")}"
-      >
+  let inv=
+    (currentEntry.investments||[])
+      .map(x=>`
 
-      <input
-        class="exp-amt ledger-num"
-        data-group="investments"
-        data-field="amount"
-        data-id="${x.id}"
-        type="number"
-        inputmode="decimal"
-        placeholder="0"
-        value="${x.amount||""}"
-      >
+        <div class="exp-row">
 
-      <button
-        class="exp-del"
-        data-group="investments"
-        data-id="${x.id}"
-      >×</button>
+          <input
+            class="exp-note"
+            style="flex:2"
+            data-group="investments"
+            data-field="note"
+            data-id="${x.id}"
+            placeholder="Investment"
+            value="${
+              String(x.note||"")
+                .replace(/"/g,"&quot;")
+            }"
+          >
 
-    </div>
-  `).join("") || '<div class="empty-note">—</div>';
+          <input
+            class="exp-amt ledger-num"
+            data-group="investments"
+            data-field="amount"
+            data-id="${x.id}"
+            type="number"
+            inputmode="decimal"
+            placeholder="0"
+            value="${x.amount||""}"
+          >
+
+          <button
+            class="exp-del"
+            data-group="investments"
+            data-id="${x.id}"
+          >
+            ×
+          </button>
+
+        </div>
+
+      `).join("")
+      ||
+      `
+        <div class="empty-note">
+          —
+        </div>
+      `;
 
   r.innerHTML=`
 
     <div class="nav-row">
 
-      <button class="nav-btn" id="prev">‹</button>
+      <button
+        class="nav-btn"
+        id="prev"
+        aria-label="Previous month"
+      >
+        ‹
+      </button>
 
       <div style="text-align:center">
-        <div class="month-title">${MONTHS[viewMonth]} ${viewYear}</div>
-        <div class="month-sub">Savings Ledger</div>
+
+        <div class="month-title">
+          ${MONTHS[viewMonth]}
+          ${viewYear}
+        </div>
+
+        <div class="month-sub">
+          Savings Ledger
+        </div>
+
       </div>
 
-      <button class="nav-btn" id="next">›</button>
+      <button
+        class="nav-btn"
+        id="next"
+        aria-label="Next month"
+      >
+        ›
+      </button>
 
     </div>
 
+
     <div class="hero">
 
-      <div class="hero-label">Net savings</div>
+      <div class="hero-label">
+        Net savings
+      </div>
 
-      <div class="hero-figure ${t.savings>=0?"pos":"neg"}">
+      <div
+        class="
+          hero-figure
+          ${t.savings>=0
+            ?"pos"
+            :"neg"}
+        "
+      >
         ${fmt(t.savings)}
       </div>
 
       <div class="hero-rate">
-        ${t.income?(t.rate*100).toFixed(1)+"% savings rate":"—"}
+
+        ${
+          t.income
+            ?(
+              t.rate*100
+            ).toFixed(1)+
+              "% savings rate"
+            :"—"
+        }
+
       </div>
 
     </div>
@@ -784,19 +1079,48 @@ function render(){
     <div class="section">
 
       <div class="section-head">
-        <div class="section-title">Income</div>
-        <div class="section-total green">${fmt(t.income)}</div>
+
+        <div class="section-title">
+          Income
+        </div>
+
+        <div
+          class="
+            section-total
+            green
+          "
+        >
+          ${fmt(t.income)}
+        </div>
+
       </div>
 
-      ${["Salary","Rental / other income","Dividends"]
+      ${
+        [
+          "Salary",
+          "Rental / other income",
+          "Dividends"
+        ]
         .map((lab,i)=>`
+
           <div class="row-line">
 
-            <div class="row-label">${lab}</div>
+            <div class="row-label">
+              ${lab}
+            </div>
 
             <input
-              class="row-input ledger-num"
-              id="${["salaryInput","otherIncomeInput","dividendsInput"][i]}"
+              class="
+                row-input
+                ledger-num
+              "
+              id="${
+                [
+                  "salaryInput",
+                  "otherIncomeInput",
+                  "dividendsInput"
+                ][i]
+              }"
               type="number"
               inputmode="decimal"
               placeholder="0"
@@ -810,13 +1134,25 @@ function render(){
             >
 
           </div>
-        `).join("")}
+
+        `).join("")
+      }
 
       <div>
-        ${incomeAdjustmentRows(currentEntry.incomeAdjustments||[])}
+
+        ${
+          incomeAdjustmentRows(
+            currentEntry
+              .incomeAdjustments||[]
+          )
+        }
+
       </div>
 
-      <button class="add-btn" id="addIncome">
+      <button
+        class="add-btn"
+        id="addIncome"
+      >
         + Add / subtract income
       </button>
 
@@ -826,15 +1162,38 @@ function render(){
     <div class="section">
 
       <div class="section-head">
-        <div class="section-title">Salary account expenses</div>
-        <div class="section-total red">${fmt(t.salaryExp)}</div>
+
+        <div class="section-title">
+          Salary account expenses
+        </div>
+
+        <div
+          class="
+            section-total
+            red
+          "
+        >
+          ${fmt(t.salaryExp)}
+        </div>
+
       </div>
 
       <div>
-        ${rows(currentEntry.salaryExpenses,"salaryExpenses")}
+
+        ${
+          rows(
+            currentEntry
+              .salaryExpenses,
+            "salaryExpenses"
+          )
+        }
+
       </div>
 
-      <button class="add-btn" id="addSal">
+      <button
+        class="add-btn"
+        id="addSal"
+      >
         + Add expense
       </button>
 
@@ -844,49 +1203,121 @@ function render(){
     <div class="section">
 
       <div class="section-head">
-        <div class="section-title">Credit card spending</div>
-        <div class="section-total gold">${fmt(t.cardExp)}</div>
+
+        <div class="section-title">
+          Credit card spending
+        </div>
+
+        <div
+          class="
+            section-total
+            gold
+          "
+        >
+          ${fmt(t.cardExp)}
+        </div>
+
       </div>
 
       <div>
-        ${rows(currentEntry.cardExpenses,"cardExpenses")}
+
+        ${
+          rows(
+            currentEntry
+              .cardExpenses,
+            "cardExpenses"
+          )
+        }
+
       </div>
 
-      <button class="add-btn" id="addCard">
+      <button
+        class="add-btn"
+        id="addCard"
+      >
         + Add card expense
       </button>
 
     </div>
 
 
-    <div class="section muted">
+    <div
+      class="
+        section
+        muted
+      "
+    >
 
-      <div class="section-head" style="margin-bottom:0;border-bottom:none;padding-bottom:0">
-        <div class="section-title">Previous month's card bill</div>
-        <div class="section-total red">${fmt(t.cardBill)}</div>
+      <div
+        class="section-head"
+        style="
+          margin-bottom:0;
+          border-bottom:none;
+          padding-bottom:0
+        "
+      >
+
+        <div class="section-title">
+          Previous month's card bill
+        </div>
+
+        <div
+          class="
+            section-total
+            red
+          "
+        >
+          ${fmt(t.cardBill)}
+        </div>
+
       </div>
 
     </div>
 
 
-    <div class="section muted">
+    <div
+      class="
+        section
+        muted
+      "
+    >
 
       <div class="section-head">
-        <div class="section-title">Savings account interest</div>
-        <div class="section-total gold">${fmt(t.savingsInterest)}</div>
+
+        <div class="section-title">
+          Savings account interest
+        </div>
+
+        <div
+          class="
+            section-total
+            gold
+          "
+        >
+          ${fmt(t.savingsInterest)}
+        </div>
+
       </div>
 
       <div class="row-line">
 
-        <div class="row-label">Interest</div>
+        <div class="row-label">
+          Interest
+        </div>
 
         <input
-          class="row-input ledger-num"
+          class="
+            row-input
+            ledger-num
+          "
           id="savingsInterestInput"
           type="number"
           inputmode="decimal"
           placeholder="0"
-          value="${currentEntry.savingsInterest||""}"
+          value="${
+            currentEntry
+              .savingsInterest||""
+          }"
         >
 
       </div>
@@ -894,16 +1325,38 @@ function render(){
     </div>
 
 
-    <div class="section muted">
+    <div
+      class="
+        section
+        muted
+      "
+    >
 
       <div class="section-head">
-        <div class="section-title">Investments</div>
-        <div class="section-total gold">${fmt(t.investments)}</div>
+
+        <div class="section-title">
+          Investments
+        </div>
+
+        <div
+          class="
+            section-total
+            gold
+          "
+        >
+          ${fmt(t.investments)}
+        </div>
+
       </div>
 
-      <div>${inv}</div>
+      <div>
+        ${inv}
+      </div>
 
-      <button class="add-btn" id="addInv">
+      <button
+        class="add-btn"
+        id="addInv"
+      >
         + Add investment
       </button>
 
@@ -911,31 +1364,54 @@ function render(){
 
 
     <div class="save-bar">
-      <button class="save-btn" id="save">
+
+      <button
+        class="save-btn"
+        id="save"
+      >
         Save month
       </button>
+
     </div>
 
-    <div class="save-status" id="status"></div>
+    <div
+      class="save-status"
+      id="status"
+    ></div>
 
 
     <div class="data-bar">
 
-      <button class="data-btn" id="export">
+      <button
+        class="data-btn"
+        id="export"
+      >
         Export backup
       </button>
 
-      <button class="data-btn" id="importBtn">
+      <button
+        class="data-btn"
+        id="importBtn"
+      >
         Import backup
       </button>
 
-      <input id="file" type="file" accept=".json" hidden>
+      <input
+        id="file"
+        type="file"
+        accept=".json"
+        hidden
+      >
 
     </div>
 
 
     <div class="divider">
-      <span>Year in review</span>
+
+      <span>
+        Year in review
+      </span>
+
     </div>
 
     <div id="year"></div>
@@ -947,193 +1423,331 @@ function render(){
 
 function bind(){
 
-  document.getElementById("prev").onclick=()=>change(-1);
-  document.getElementById("next").onclick=()=>change(1);
+  document
+    .getElementById("prev")
+    .onclick=()=>change(-1);
 
-  ["salaryInput","otherIncomeInput","dividendsInput","savingsInterestInput"]
-    .forEach(id=>{
+  document
+    .getElementById("next")
+    .onclick=()=>change(1);
 
-      document.getElementById(id).oninput=e=>{
+
+  [
+    "salaryInput",
+    "otherIncomeInput",
+    "dividendsInput",
+    "savingsInterestInput"
+  ]
+  .forEach(id=>{
+
+    document
+      .getElementById(id)
+      .oninput=e=>{
 
         currentEntry[
-          id==="salaryInput"?"salary":
-          id==="otherIncomeInput"?"otherIncome":
-          id==="dividendsInput"?"dividends":
-          "savingsInterest"
-        ]=Number(e.target.value)||0;
+          id==="salaryInput"
+            ?"salary"
+            :id==="otherIncomeInput"
+            ?"otherIncome"
+            :id==="dividendsInput"
+            ?"dividends"
+            :"savingsInterest"
+        ]=
+          Number(e.target.value)||0;
 
         usedTemplate=false;
+
         refresh();
+      };
+  });
+
+
+  document
+    .getElementById("addIncome")
+    .onclick=()=>{
+
+      sync();
+
+      currentEntry
+        .incomeAdjustments=
+          currentEntry
+            .incomeAdjustments||[];
+
+      currentEntry
+        .incomeAdjustments
+        .push({
+          id:uid(),
+          sign:"add",
+          note:"",
+          amount:""
+        });
+
+      usedTemplate=false;
+
+      render();
+    };
+
+
+  document
+    .getElementById("addSal")
+    .onclick=()=>{
+
+      sync();
+
+      currentEntry
+        .salaryExpenses
+        .push({
+          id:uid(),
+          category:CATS[0],
+          note:"",
+          amount:""
+        });
+
+      render();
+    };
+
+
+  document
+    .getElementById("addCard")
+    .onclick=()=>{
+
+      sync();
+
+      currentEntry
+        .cardExpenses
+        .push({
+          id:uid(),
+          category:
+            "Credit Card Bills",
+          note:"",
+          amount:""
+        });
+
+      render();
+    };
+
+
+  document
+    .getElementById("addInv")
+    .onclick=()=>{
+
+      sync();
+
+      currentEntry
+        .investments
+        .push({
+          id:uid(),
+          note:"",
+          amount:""
+        });
+
+      render();
+    };
+
+
+  document
+    .querySelectorAll(
+      ".exp-del"
+    )
+    .forEach(btn=>{
+
+      btn.onclick=()=>{
+
+        sync();
+
+        currentEntry[
+          btn.dataset.group
+        ]=
+          currentEntry[
+            btn.dataset.group
+          ]
+          .filter(
+            x=>
+              x.id!==
+              btn.dataset.id
+          );
+
+        render();
       };
     });
 
 
-  document.getElementById("addIncome").onclick=()=>{
+  document
+    .querySelectorAll(
+      "[data-field]"
+    )
+    .forEach(el=>{
 
-    sync();
+      el.oninput=
+      el.onchange=
+        ()=>{
 
-    currentEntry.incomeAdjustments=currentEntry.incomeAdjustments||[];
+          let item=
+            (
+              currentEntry[
+                el.dataset.group
+              ]||[]
+            )
+            .find(
+              x=>
+                x.id===
+                el.dataset.id
+            );
 
-    currentEntry.incomeAdjustments.push({
-      id:uid(),
-      sign:"add",
-      note:"",
-      amount:""
+          if(item){
+
+            item[
+              el.dataset.field
+            ]=
+              el.dataset.field===
+              "amount"
+                ?Number(
+                  el.value
+                )||0
+                :el.value;
+          }
+
+          usedTemplate=false;
+
+          refresh();
+        };
     });
 
-    usedTemplate=false;
-    render();
-  };
+
+  document
+    .getElementById("save")
+    .onclick=save;
 
 
-  document.getElementById("addSal").onclick=()=>{
+  document
+    .getElementById("export")
+    .onclick=()=>{
 
-    sync();
+      let blob=
+        new Blob(
+          [
+            JSON.stringify(
+              db,
+              null,
+              2
+            )
+          ],
+          {
+            type:
+              "application/json"
+          }
+        );
 
-    currentEntry.salaryExpenses.push({
-      id:uid(),
-      category:CATS[0],
-      note:"",
-      amount:""
-    });
+      let a=
+        document
+          .createElement("a");
 
-    render();
-  };
+      a.href=
+        URL.createObjectURL(blob);
 
+      a.download=
+        "savings-ledger-backup.json";
 
-  document.getElementById("addCard").onclick=()=>{
+      a.click();
 
-    sync();
-
-    currentEntry.cardExpenses.push({
-      id:uid(),
-      category:"Credit Card Bills",
-      note:"",
-      amount:""
-    });
-
-    render();
-  };
-
-
-  document.getElementById("addInv").onclick=()=>{
-
-    sync();
-
-    currentEntry.investments.push({
-      id:uid(),
-      note:"",
-      amount:""
-    });
-
-    render();
-  };
-
-
-  document.querySelectorAll(".exp-del").forEach(btn=>{
-
-    btn.onclick=()=>{
-
-      sync();
-
-      currentEntry[btn.dataset.group]=
-        currentEntry[btn.dataset.group]
-          .filter(x=>x.id!==btn.dataset.id);
-
-      render();
+      URL.revokeObjectURL(
+        a.href
+      );
     };
-  });
 
 
-  document.querySelectorAll("[data-field]").forEach(el=>{
+  document
+    .getElementById("importBtn")
+    .onclick=()=>{
 
-    el.oninput=el.onchange=()=>{
-
-      let item=(currentEntry[el.dataset.group]||[])
-        .find(x=>x.id===el.dataset.id);
-
-      if(item){
-        item[el.dataset.field]=
-          el.dataset.field==="amount"
-            ? Number(el.value)||0
-            : el.value;
-      }
-
-      usedTemplate=false;
-      refresh();
+      document
+        .getElementById("file")
+        .click();
     };
-  });
 
 
-  document.getElementById("save").onclick=save;
+  document
+    .getElementById("file")
+    .onchange=
+      async e=>{
 
+        let f=
+          e.target.files[0];
 
-  document.getElementById("export").onclick=()=>{
+        if(!f)return;
 
-    let blob=new Blob(
-      [JSON.stringify(db,null,2)],
-      {type:"application/json"}
-    );
+        try{
 
-    let a=document.createElement("a");
+          let obj=
+            JSON.parse(
+              await f.text()
+            );
 
-    a.href=URL.createObjectURL(blob);
-    a.download="savings-ledger-backup.json";
-    a.click();
+          if(
+            typeof obj!=="object"
+          ){
+            throw 0;
+          }
 
-    URL.revokeObjectURL(a.href);
-  };
+          db=obj;
 
+          persist();
 
-  document.getElementById("importBtn").onclick=()=>{
-    document.getElementById("file").click();
-  };
+          currentEntry=
+            loadEntry(
+              viewYear,
+              viewMonth
+            );
 
+          render();
 
-  document.getElementById("file").onchange=async e=>{
+        }catch(err){
 
-    let f=e.target.files[0];
-
-    if(!f)return;
-
-    try{
-
-      let obj=JSON.parse(await f.text());
-
-      if(typeof obj!=="object")throw 0;
-
-      db=obj;
-      persist();
-
-      currentEntry=loadEntry(viewYear,viewMonth);
-
-      render();
-
-    }catch(err){
-
-      alert("Invalid backup file.");
-    }
-  };
+          alert(
+            "Invalid backup file."
+          );
+        }
+      };
 }
 
 function refresh(){
 
-  let t=totals(currentEntry);
+  let t=
+    totals(currentEntry);
 
-  let h=document.querySelector(".hero-figure");
-  let rate=document.querySelector(".hero-rate");
+  let h=
+    document.querySelector(
+      ".hero-figure"
+    );
 
-  h.textContent=fmt(t.savings);
+  let rate=
+    document.querySelector(
+      ".hero-rate"
+    );
+
+  h.textContent=
+    fmt(t.savings);
 
   h.className=
-    "hero-figure "+(t.savings>=0?"pos":"neg");
+    "hero-figure "+
+    (
+      t.savings>=0
+        ?"pos"
+        :"neg"
+    );
 
   rate.textContent=
     t.income
-      ?(t.rate*100).toFixed(1)+"% savings rate"
+      ?(
+        t.rate*100
+      ).toFixed(1)+
+        "% savings rate"
       :"—";
 
-  let totalsEls=document.querySelectorAll(".section-total");
+  let totalsEls=
+    document.querySelectorAll(
+      ".section-total"
+    );
 
   let values=[
     t.income,
@@ -1144,34 +1758,55 @@ function refresh(){
     t.investments
   ];
 
-  totalsEls.forEach((el,i)=>{
-    if(values[i]!==undefined){
-      el.textContent=fmt(values[i]);
+  totalsEls.forEach(
+    (el,i)=>{
+
+      if(
+        values[i]!==undefined
+      ){
+        el.textContent=
+          fmt(values[i]);
+      }
     }
-  });
+  );
 }
 
 function save(){
 
   sync();
 
-  let ok=saveEntry(
-    viewYear,
-    viewMonth,
-    currentEntry
-  );
+  let ok=
+    saveEntry(
+      viewYear,
+      viewMonth,
+      currentEntry
+    );
 
-  let s=document.getElementById("status");
+  let s=
+    document.getElementById(
+      "status"
+    );
 
   usedTemplate=false;
 
-  s.textContent=ok?"Saved ✓":"Could not save";
-  s.style.color=ok?"var(--green)":"var(--red)";
+  s.textContent=
+    ok
+      ?"Saved ✓"
+      :"Could not save";
+
+  s.style.color=
+    ok
+      ?"var(--green)"
+      :"var(--red)";
 
   renderYear();
 
   setTimeout(()=>{
-    if(s)s.textContent="";
+
+    if(s){
+      s.textContent="";
+    }
+
   },2500);
 }
 
@@ -1188,125 +1823,255 @@ function change(d){
   viewMonth+=d;
 
   if(viewMonth<0){
+
     viewMonth=11;
     viewYear--;
   }
 
   if(viewMonth>11){
+
     viewMonth=0;
     viewYear++;
   }
 
-  currentEntry=loadEntry(
-    viewYear,
-    viewMonth
-  );
+  currentEntry=
+    loadEntry(
+      viewYear,
+      viewMonth
+    );
 
   render();
 }
 
 function renderYear(){
 
-  let wrap=document.getElementById("year");
+  let wrap=
+    document.getElementById(
+      "year"
+    );
 
-  let rows=[];
+  let yearRows=[];
 
-  for(let m=0;m<12;m++){
+  for(
+    let m=0;
+    m<12;
+    m++
+  ){
 
     let e=
       m===viewMonth
         ?currentEntry
-        :(db[key(viewYear,m)]
-          ?withIds(JSON.parse(JSON.stringify(db[key(viewYear,m)])))
-          :empty());
+        :(
+          db[
+            key(
+              viewYear,
+              m
+            )
+          ]
+            ?withIds(
+              JSON.parse(
+                JSON.stringify(
+                  db[
+                    key(
+                      viewYear,
+                      m
+                    )
+                  ]
+                )
+              )
+            )
+            :empty()
+        );
 
-    let t=totals(e,viewYear,m);
+    let t=
+      totals(
+        e,
+        viewYear,
+        m
+      );
 
-    rows.push({
-      month:MONTHS[m].slice(0,3),
+    yearRows.push({
+      month:
+        MONTHS[m]
+          .slice(0,3),
       income:t.income,
       expenses:t.expenses,
       savings:t.savings,
-      investments:t.investments,
-      savingsInterest:t.savingsInterest
+      investments:
+        t.investments,
+      savingsInterest:
+        t.savingsInterest
     });
   }
 
-  let yi=rows.reduce((s,r)=>s+r.income,0);
-  let ye=rows.reduce((s,r)=>s+r.expenses,0);
-  let ys=yi-ye;
-  let yinv=rows.reduce((s,r)=>s+r.investments,0);
-  let yint=rows.reduce((s,r)=>s+r.savingsInterest,0);
+  let yi=
+    yearRows.reduce(
+      (s,r)=>
+        s+r.income,
+      0
+    );
 
-  let yr=yi?ys/yi*100:0;
+  let ye=
+    yearRows.reduce(
+      (s,r)=>
+        s+r.expenses,
+      0
+    );
 
-  let max=Math.max(
-    1,
-    ...rows.map(r=>Math.abs(r.savings))
-  );
+  let ys=
+    yi-ye;
+
+  let yinv=
+    yearRows.reduce(
+      (s,r)=>
+        s+r.investments,
+      0
+    );
+
+  let yint=
+    yearRows.reduce(
+      (s,r)=>
+        s+r.savingsInterest,
+      0
+    );
+
+  let yr=
+    yi
+      ?ys/yi*100
+      :0;
+
+  let max=
+    Math.max(
+      1,
+      ...yearRows.map(
+        r=>
+          Math.abs(
+            r.savings
+          )
+      )
+    );
 
   let bw=26;
   let gap=10;
   let ch=90;
   let base=45;
-  let w=rows.length*(bw+gap);
 
-  let bars=rows.map((r,i)=>{
+  let w=
+    yearRows.length*
+    (bw+gap);
 
-    let x=i*(bw+gap);
-    let h=Math.abs(r.savings)/max*(ch/2-6);
-    let y=r.savings>=0?base-h:base;
-    let c=r.savings>=0?"var(--green)":"var(--red)";
+  let bars=
+    yearRows.map(
+      (r,i)=>{
 
-    return`
-      <rect
-        x="${x}"
-        y="${y}"
-        width="${bw}"
-        height="${Math.max(h,1)}"
-        fill="${c}"
-        rx="2"
-      />
+        let x=
+          i*(bw+gap);
 
-      <text
-        x="${x+bw/2}"
-        y="${ch+12}"
-        font-size="9"
-        fill="var(--ink-soft)"
-        text-anchor="middle"
-      >
-        ${r.month}
-      </text>
-    `;
-  }).join("");
+        let h=
+          Math.abs(
+            r.savings
+          )/
+          max*
+          (ch/2-6);
+
+        let y=
+          r.savings>=0
+            ?base-h
+            :base;
+
+        let c=
+          r.savings>=0
+            ?"var(--green)"
+            :"var(--red)";
+
+        return`
+
+          <rect
+            x="${x}"
+            y="${y}"
+            width="${bw}"
+            height="${
+              Math.max(h,1)
+            }"
+            fill="${c}"
+            rx="2"
+          />
+
+          <text
+            x="${
+              x+bw/2
+            }"
+            y="${ch+12}"
+            font-size="9"
+            fill="var(--ink-soft)"
+            text-anchor="middle"
+          >
+            ${r.month}
+          </text>
+
+        `;
+      }
+    ).join("");
 
   wrap.innerHTML=`
 
     <div class="year-kpis">
 
       <div class="kpi">
-        <div class="kpi-label">Income</div>
-        <div class="kpi-value">${fmt(yi)}</div>
+
+        <div class="kpi-label">
+          Income
+        </div>
+
+        <div class="kpi-value">
+          ${fmt(yi)}
+        </div>
+
       </div>
 
       <div class="kpi">
-        <div class="kpi-label">Expenses</div>
-        <div class="kpi-value">${fmt(ye)}</div>
+
+        <div class="kpi-label">
+          Expenses
+        </div>
+
+        <div class="kpi-value">
+          ${fmt(ye)}
+        </div>
+
       </div>
 
       <div class="kpi">
-        <div class="kpi-label">Savings</div>
+
+        <div class="kpi-label">
+          Savings
+        </div>
+
         <div
           class="kpi-value"
-          style="color:${ys>=0?"var(--green)":"var(--red)"}"
+          style="
+            color:${
+              ys>=0
+                ?"var(--green)"
+                :"var(--red)"
+            }
+          "
         >
           ${fmt(ys)}
         </div>
+
       </div>
 
       <div class="kpi">
-        <div class="kpi-label">Savings rate</div>
-        <div class="kpi-value">${yr.toFixed(1)}%</div>
+
+        <div class="kpi-label">
+          Savings rate
+        </div>
+
+        <div class="kpi-value">
+          ${yr.toFixed(1)}%
+        </div>
+
       </div>
 
     </div>
@@ -1315,17 +2080,37 @@ function renderYear(){
     <div class="year-kpis">
 
       <div class="kpi">
-        <div class="kpi-label">Investments</div>
-        <div class="kpi-value" style="color:var(--gold)">
+
+        <div class="kpi-label">
+          Investments
+        </div>
+
+        <div
+          class="kpi-value"
+          style="
+            color:var(--gold)
+          "
+        >
           ${fmt(yinv)}
         </div>
+
       </div>
 
       <div class="kpi">
-        <div class="kpi-label">Interest</div>
-        <div class="kpi-value" style="color:var(--gold)">
+
+        <div class="kpi-label">
+          Interest
+        </div>
+
+        <div
+          class="kpi-value"
+          style="
+            color:var(--gold)
+          "
+        >
           ${fmt(yint)}
         </div>
+
       </div>
 
     </div>
@@ -1334,7 +2119,11 @@ function renderYear(){
     <div class="chart-wrap">
 
       <svg
-        viewBox="0 0 ${w} ${ch+20}"
+        viewBox="
+          0 0
+          ${w}
+          ${ch+20}
+        "
         width="100%"
         height="140"
       >
@@ -1357,30 +2146,68 @@ function renderYear(){
     <table class="year-table">
 
       <thead>
+
         <tr>
           <th>Month</th>
           <th>Income</th>
           <th>Expenses</th>
           <th>Savings</th>
         </tr>
+
       </thead>
 
       <tbody>
 
-        ${rows.map(r=>`
+        ${yearRows.map(r=>`
+
           <tr>
-            <td>${r.month}</td>
-            <td class="ledger-num">${fmt(r.income)}</td>
-            <td class="ledger-num">${fmt(r.expenses)}</td>
-            <td class="ledger-num">${fmt(r.savings)}</td>
+
+            <td>
+              ${r.month}
+            </td>
+
+            <td class="ledger-num">
+              ${fmt(r.income)}
+            </td>
+
+            <td class="ledger-num">
+              ${fmt(r.expenses)}
+            </td>
+
+            <td class="ledger-num">
+              ${fmt(r.savings)}
+            </td>
+
           </tr>
+
         `).join("")}
 
         <tr>
-          <td><strong>Total</strong></td>
-          <td class="ledger-num"><strong>${fmt(yi)}</strong></td>
-          <td class="ledger-num"><strong>${fmt(ye)}</strong></td>
-          <td class="ledger-num"><strong>${fmt(ys)}</strong></td>
+
+          <td>
+            <strong>
+              Total
+            </strong>
+          </td>
+
+          <td class="ledger-num">
+            <strong>
+              ${fmt(yi)}
+            </strong>
+          </td>
+
+          <td class="ledger-num">
+            <strong>
+              ${fmt(ye)}
+            </strong>
+          </td>
+
+          <td class="ledger-num">
+            <strong>
+              ${fmt(ys)}
+            </strong>
+          </td>
+
         </tr>
 
       </tbody>
@@ -1389,23 +2216,34 @@ function renderYear(){
   `;
 }
 
-currentEntry=loadEntry(
-  viewYear,
-  viewMonth
-);
+currentEntry=
+  loadEntry(
+    viewYear,
+    viewMonth
+  );
 
 render();
 
 })();
 </script>
 
+
 <script>
-if("serviceWorker" in navigator){
-  window.addEventListener("load",()=>{
-    navigator.serviceWorker
-      .register("./sw.js")
-      .catch(console.error);
-  });
+if(
+  "serviceWorker" in navigator
+){
+
+  window.addEventListener(
+    "load",
+    ()=>{
+
+      navigator
+        .serviceWorker
+        .register("./sw.js")
+        .catch(console.error);
+
+    }
+  );
 }
 </script>
 
